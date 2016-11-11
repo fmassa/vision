@@ -52,7 +52,7 @@ class VOCSegmentation(data.Dataset):
     def __getitem__(self, index):
         img_id = self.ids[index]
 
-        target = Image.open(self._annopath % img_id).convert('RGB')
+        target = Image.open(self._annopath % img_id)#.convert('RGB')
 
         img = Image.open(self._imgpath % img_id).convert('RGB')
         if self.transform is not None:

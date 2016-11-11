@@ -120,3 +120,71 @@ class RandomSizedCrop(object):
         scale = Scale(self.size, interpolation=self.interpolation)
         crop = CenterCrop(self.size)
         return crop(scale(img))
+
+class RandomRotate(object):
+    """Randomnly rotates an image
+
+    Args:
+        max_angle: the maximum angle for rotation
+        interpolation: the interpolation mode from PIL
+        mode: defines how to handle boundaries. Possible values are
+            'valid': the resulting image only contains pixels from
+                    the original image
+            'full': all the pixels from the original image are present
+            'same': the image has the same size as the original image
+    """
+    def __init__(self, max_angle, interpolation=Image.BILINEAR, mode='valid'):
+        self.max_angle = max_angle
+        self.interpolation = interpolation
+        self.mode = mode
+
+    # taken from http://stackoverflow.com/questions/16702966/rotate-image-and-crop-out-black-borders
+    def _rotatedRectWithMaxArea(self, size, angle):
+        """
+        Given a rectangle of size wxh that has been rotated by 'angle' (in
+        radians), computes the width and height of the largest possible
+        axis-aligned rectangle (maximal area) within the rotated rectangle.
+        """
+        w, h = size
+        if w <= 0 or h <= 0:
+            return 0,0
+
+        width_is_longer = w >= h
+        side_long, side_short = (w,h) if width_is_longer else (h,w)
+
+        # since the solutions for angle, -angle and 180-angle are all the same,
+        # if suffices to look at the first quadrant and the absolute values of sin,cos:
+        sin_a, cos_a = abs(math.sin(angle)), abs(math.cos(angle))
+        if side_short <= 2.*sin_a*cos_a*side_long:
+            # half constrained case: two crop corners touch the longer side,
+            #   the other two corners are on the mid-line parallel to the longer line
+            x = 0.5*side_short
+            wr,hr = (x/sin_a,x/cos_a) if width_is_longer else (x/cos_a,x/sin_a)
+        else:
+            # fully constrained case: crop touches all 4 sides
+            cos_2a = cos_a*cos_a - sin_a*sin_a
+            wr,hr = (w*cos_a - h*sin_a)/cos_2a, (h*cos_a - w*sin_a)/cos_2a
+
+        return wr,hr
+
+
+    def __call__(self, img):
+        angle = random.uniform(-self.max_angle, self.max_angle)
+        if self.mode == 'valid':
+            wr, hr = self._rotatedRectWithMaxArea(img.size, math.radians(angle))
+            #crop_size = self._rotatedRectWithMaxArea(img.size, math.radians(angle))
+            rot = img.rotate(angle, resample=self.interpolation, expand=True)
+            w2, h2 = rot.size
+            cs = (-wr, -hr, wr, hr)
+
+            cr = (int((i+j)/2) for i, j in zip(rot.size+rot.size, cs))
+
+            #c = ((w2-wr), (h2-hr), (w2+wr), (h2+hr))
+            #cr = (int(i/2) for i in c)
+            return rot.crop(cr)
+        elif self.mode == 'full':
+            return img.rotate(angle, resample=self.interpolation, expand=True)
+        elif self.mode == 'same':
+            return img.rotate(angle, resample=self.interpolation, expand=False)
+        else:
+            raise ValueError('Unknown mode %s' % self.mode)

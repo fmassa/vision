@@ -165,23 +165,19 @@ class RandomRotate(object):
             cos_2a = cos_a*cos_a - sin_a*sin_a
             wr,hr = (w*cos_a - h*sin_a)/cos_2a, (h*cos_a - w*sin_a)/cos_2a
 
-        return wr,hr
+        return wr, hr
 
 
     def __call__(self, img):
         angle = random.uniform(-self.max_angle, self.max_angle)
         if self.mode == 'valid':
-            wr, hr = self._rotatedRectWithMaxArea(img.size, math.radians(angle))
-            #crop_size = self._rotatedRectWithMaxArea(img.size, math.radians(angle))
+            wmax, hmax = self._rotatedRectWithMaxArea(img.size, math.radians(angle))
             rot = img.rotate(angle, resample=self.interpolation, expand=True)
-            w2, h2 = rot.size
-            cs = (-wr, -hr, wr, hr)
-
-            cr = (int((i+j)/2) for i, j in zip(rot.size+rot.size, cs))
-
-            #c = ((w2-wr), (h2-hr), (w2+wr), (h2+hr))
-            #cr = (int(i/2) for i in c)
-            return rot.crop(cr)
+            wrot, hrot = rot.size
+            cs = (-wmax, -hmax, wmax, hmax)
+            cc = (wrot, hrot, wrot, hrot)
+            crop_pos = (int((i+j)/2) for i, j in zip(cc, cs))
+            return rot.crop(crop_pos)
         elif self.mode == 'full':
             return img.rotate(angle, resample=self.interpolation, expand=True)
         elif self.mode == 'same':
